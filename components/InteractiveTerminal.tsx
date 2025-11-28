@@ -1,9 +1,9 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Terminal as TerminalIcon, Maximize2, Minimize2, X, Save, LogOut, ChevronRight } from 'lucide-react';
+import { Terminal as TerminalIcon, Maximize2, Minimize2, X, Save, LogOut, ChevronRight, Lock } from 'lucide-react';
 import { sendMessageToGemini } from '../services/geminiService';
 import { PROJECTS, SKILLS, EXPERIENCE, HERO_DESCRIPTION } from '../constants';
-import { dispatchAchievement } from './Gamification';
+import { dispatchAchievement, getPlayerStats } from './Gamification';
 import { playTyping, playError, playClick, playAchievement } from '../utils/audio';
 import { triggerSystemWipe } from './SystemWipe';
 
@@ -295,17 +295,26 @@ const InteractiveTerminal: React.FC = () => {
 
   const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
+  const generatePublicIP = () => {
+    // Generate a random IP that looks public (avoiding 10.x, 192.168.x, 127.x, 172.16-31.x)
+    let octet1 = Math.floor(Math.random() * 223) + 1;
+    while ([10, 127, 192, 172].includes(octet1)) {
+        octet1 = Math.floor(Math.random() * 223) + 1;
+    }
+    return `${octet1}.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}`;
+  };
+
   const initiateHackerSequence = async () => {
        setIsProcessing(true);
        const os = getOS();
-       // Generate a random local IP to look real
-       const ip = `192.168.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}`; 
+       // Generate a random PUBLIC IP to look real
+       const ip = generatePublicIP();
        const targetDrive = os === 'Windows' ? 'C:\\Windows\\System32' : (os === 'MacOS' ? '/System/Library/CoreServices' : '/dev/sda1');
 
        const sequence: {text: string, type: TerminalLine['type'], delay: number}[] = [
            { text: `[SYSTEM] DETECTED UNAUTHORIZED ROOT COMMAND: rm -rf /`, type: 'error', delay: 800 },
            { text: `[NETWORK] TRACING ORIGIN IP...`, type: 'system', delay: 1000 },
-           { text: `[NETWORK] TARGET IDENTIFIED: ${ip} (${os})`, type: 'warning', delay: 800 },
+           { text: `[NETWORK] TARGET IDENTIFIED: ${ip} (Public Node)`, type: 'warning', delay: 800 },
            { text: `[NETWORK] INITIATING REVERSE CONNECTION TO HOST...`, type: 'system', delay: 1500 },
            { text: `[NETWORK] CONNECTION ESTABLISHED.`, type: 'success', delay: 800 },
            { text: `[SECURITY] BYPASSING HOST FIREWALL...`, type: 'system', delay: 1200 },
@@ -342,7 +351,6 @@ const InteractiveTerminal: React.FC = () => {
            if (count > 50) {
                clearInterval(interval);
                triggerSystemWipe({ os });
-               // We intentionally do not set isProcessing(false) here to keep input hidden until the "death" overlay takes over
            }
        }, 30);
   };
@@ -403,6 +411,36 @@ const InteractiveTerminal: React.FC = () => {
         return;
     }
 
+    if (cmd === 'xp') {
+        const stats = getPlayerStats();
+        addToHistory([
+            { type: 'info', content: `PLAYER STATUS:` },
+            { type: 'system', content: `LEVEL: ${stats.level}` },
+            { type: 'system', content: `XP: ${stats.xp}` },
+            { type: 'success', content: `ACHIEVEMENTS: ${stats.unlocked.length}` }
+        ]);
+        return;
+    }
+
+    if (cmd === 'guide') {
+        const stats = getPlayerStats();
+        if (stats.level >= 5) {
+             addToHistory([
+                 { type: 'success', content: 'ACCESS GRANTED [LEVEL 5]' },
+                 { type: 'info', content: 'Secrets Guide:' },
+                 { type: 'system', content: '- Header Version Click: Unlocks "DATA MINER"' },
+                 { type: 'system', content: '- Hero Pixel: Unlocks "DEEP DIVE" hints' },
+                 { type: 'system', content: '- Konami Code: Activates "OVERDRIVE"' }
+             ]);
+        } else {
+             addToHistory([
+                 { type: 'error', content: 'ACCESS DENIED: LEVEL 5 REQUIRED' },
+                 { type: 'system', content: `Current Level: ${stats.level}` }
+             ]);
+        }
+        return;
+    }
+
     // Handle Sudo
     if (cmd === 'sudo') {
         if (args.length === 0) {
@@ -427,6 +465,7 @@ const InteractiveTerminal: React.FC = () => {
 
     switch (cmd) {
       case 'help':
+        const stats = getPlayerStats();
         addToHistory([{ 
           type: 'info', 
           content: `
@@ -440,6 +479,8 @@ const InteractiveTerminal: React.FC = () => {
   rm <file>      Remove file/directory
   touch <file>   Create empty file
   decrypt <f> <k> Decrypt a secured file
+  xp             Show player stats & XP
+  ${stats.level >= 5 ? 'guide          [UNLOCKED] View Secrets Guide' : 'guide          [LOCKED - REQ LVL 5]'}
   
   System:
   -------
@@ -670,7 +711,7 @@ const InteractiveTerminal: React.FC = () => {
         const parts = input.split(' ');
         
         if (parts.length === 1) {
-            const commands = ['ls', 'cd', 'cat', 'nano', 'help', 'clear', 'sudo', 'ai', 'mkdir', 'touch', 'rm', 'whoami', 'date', 'history', 'reboot', 'echo', 'pwd', 'decrypt', 'reveal_secrets'];
+            const commands = ['ls', 'cd', 'cat', 'nano', 'help', 'clear', 'sudo', 'ai', 'mkdir', 'touch', 'rm', 'whoami', 'date', 'history', 'reboot', 'echo', 'pwd', 'decrypt', 'reveal_secrets', 'xp', 'guide'];
             const match = commands.find(cmd => cmd.startsWith(parts[0]));
             if (match) {
                 setInput(match + ' ');
@@ -724,7 +765,6 @@ const InteractiveTerminal: React.FC = () => {
       <div 
         className={`w-full transition-all duration-500 rounded-[2rem] overflow-hidden shadow-[0_0_50px_rgba(0,0,0,0.5)] border-8 ${isEditorOpen ? 'border-gray-800 bg-[#111]' : 'border-[#151515] bg-[#0c0c0c]'} relative animate-crt-flicker`}
         style={{
-            minHeight: '400px',
             boxShadow: isEditorOpen ? '0 0 0 2px #333' : 'inset 0 0 100px rgba(0,0,0,0.9), 0 0 40px rgba(0, 255, 0, 0.1)' 
         }}
       >
@@ -733,14 +773,14 @@ const InteractiveTerminal: React.FC = () => {
 
         {/* MODERN NANO EDITOR MODE */}
         {isEditorOpen ? (
-            <div className="h-full flex flex-col font-mono text-gray-300 relative z-10 bg-[#0f0f0f]">
+            <div className="h-[500px] flex flex-col font-mono text-gray-300 relative z-10 bg-[#0f0f0f]">
                 {/* Modern Editor Header */}
                 <div className="bg-[#1a1a1a] text-gray-400 px-4 py-2 flex justify-between items-center text-sm border-b border-gray-800 select-none">
                     <div className="flex items-center gap-4">
                         <span className="font-bold text-white">nano 6.2</span>
                         <span className="bg-gray-800 px-2 py-0.5 rounded text-xs text-white">{editorFileName}</span>
                     </div>
-                    <span className="text-[#ccff00]">{editorMessage || 'Modified'}</span>
+                    <span className="text-primary">{editorMessage || 'Modified'}</span>
                 </div>
 
                 {/* Editor Body */}
@@ -780,12 +820,12 @@ const InteractiveTerminal: React.FC = () => {
             </div>
         ) : (
             /* TERMINAL SHELL MODE */
-            <div className="h-full flex flex-col font-mono text-[#ccff00] p-4 md:p-6 text-sm md:text-base relative z-10"
+            <div className="min-h-[400px] flex flex-col font-mono text-primary p-4 md:p-6 text-sm md:text-base relative z-10"
                  onClick={() => !isProcessing && inputRef.current?.focus()}
                  style={{ textShadow: "0 0 5px rgba(204, 255, 0, 0.4)" }}>
                 
                 {/* Scrollable Output */}
-                <div ref={scrollRef} className="flex-1 overflow-y-auto custom-scrollbar pb-4">
+                <div ref={scrollRef} className="flex-1 overflow-y-auto custom-scrollbar pb-4 max-h-[80vh]">
                     {history.map((line, idx) => (
                         <div key={idx} className={`mb-1 break-words leading-snug whitespace-pre-wrap ${
                             line.type === 'error' ? 'text-red-500' :
@@ -794,7 +834,7 @@ const InteractiveTerminal: React.FC = () => {
                             line.type === 'info' ? 'text-blue-400' :
                             line.type === 'success' ? 'text-green-400' :
                             line.type === 'secret' ? 'text-purple-400 font-bold' :
-                            'text-[#ccff00]'
+                            'text-primary'
                         }`}>
                             {line.content}
                         </div>
@@ -806,7 +846,7 @@ const InteractiveTerminal: React.FC = () => {
                             <span className={`mr-2 ${user === 'root' ? 'text-red-500' : 'text-blue-400'}`}>
                                 {user}@bahroze:{currentPath.length > 0 ? currentPath[currentPath.length-1] : '/'}
                             </span>
-                            <span className={`mr-2 font-bold ${user === 'root' ? 'text-red-500' : 'text-[#ccff00]'}`}>
+                            <span className={`mr-2 font-bold ${user === 'root' ? 'text-red-500' : 'text-primary'}`}>
                                 {user === 'root' ? '#' : '$'}
                             </span>
                             <div className="relative flex-1">
@@ -824,7 +864,7 @@ const InteractiveTerminal: React.FC = () => {
                                 {/* Custom Block Cursor */}
                                 <div className="absolute top-0 left-0 pointer-events-none flex">
                                     <span className="opacity-0 whitespace-pre">{input}</span>
-                                    <span className={`w-2.5 h-5 ${user === 'root' ? 'bg-red-500' : 'bg-[#ccff00]'} animate-pulse -ml-[1px]`}></span>
+                                    <span className={`w-2.5 h-5 ${user === 'root' ? 'bg-red-500' : 'bg-primary'} animate-pulse -ml-[1px]`}></span>
                                 </div>
                             </div>
                         </div>
@@ -832,7 +872,7 @@ const InteractiveTerminal: React.FC = () => {
                 </div>
                 
                 {/* Status Bar */}
-                <div className="mt-2 pt-2 border-t border-[#ccff00]/20 flex justify-between text-xs text-gray-500 uppercase tracking-widest select-none">
+                <div className="mt-2 pt-2 border-t border-primary/20 flex justify-between text-xs text-gray-500 uppercase tracking-widest select-none">
                     <span>{isProcessing ? 'BUSY / EXEC' : user === 'root' ? 'ROOT ACCESS GRANTED' : 'READY'}</span>
                     <span>BAHROZE_OS_SHELL</span>
                 </div>

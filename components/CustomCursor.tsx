@@ -4,6 +4,8 @@ import { motion, useSpring, useMotionValue } from 'framer-motion';
 
 const CustomCursor: React.FC = () => {
   const [isHovering, setIsHovering] = useState(false);
+  const [variant, setVariant] = useState('default'); // default, plasma
+
   const cursorX = useMotionValue(-100);
   const cursorY = useMotionValue(-100);
   
@@ -15,6 +17,14 @@ const CustomCursor: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const pointsRef = useRef<{x: number, y: number, age: number}[]>([]);
   const requestRef = useRef<number>(0);
+
+  useEffect(() => {
+    const handleEquip = (e: CustomEvent) => {
+        setVariant(e.detail);
+    };
+    window.addEventListener('equip-cursor' as any, handleEquip);
+    return () => window.removeEventListener('equip-cursor' as any, handleEquip);
+  }, []);
 
   useEffect(() => {
     const moveCursor = (e: MouseEvent) => {
@@ -59,6 +69,8 @@ const CustomCursor: React.FC = () => {
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
         
+        const primaryColor = getComputedStyle(document.documentElement).getPropertyValue('--color-primary').trim() || '#ccff00';
+
         // Draw trail
         for (let i = 0; i < pointsRef.current.length; i++) {
             const point = pointsRef.current[i];
@@ -72,19 +84,35 @@ const CustomCursor: React.FC = () => {
                 ctx.lineTo(nextPoint.x, nextPoint.y);
                 
                 // Color based on hover state
-                const alpha = 1 - (point.age / 20); // Fade out over 20 frames
+                const alpha = 1 - (point.age / (variant === 'plasma' ? 40 : 20)); 
                 if (alpha <= 0) continue;
                 
-                ctx.strokeStyle = isHovering 
-                    ? `rgba(255, 0, 60, ${alpha})` // Red on hover
-                    : `rgba(204, 255, 0, ${alpha})`; // Acid Green default
-                ctx.lineWidth = isHovering ? 4 : 2;
+                if (variant === 'plasma') {
+                    ctx.strokeStyle = `rgba(0, 243, 255, ${alpha})`;
+                    ctx.lineWidth = (1 - (point.age/40)) * 10;
+                    ctx.shadowBlur = 10;
+                    ctx.shadowColor = '#00f3ff';
+                } else {
+                    // Default Acid Green / Red
+                    ctx.strokeStyle = isHovering 
+                        ? `rgba(255, 0, 60, ${alpha})` 
+                        : primaryColor.replace(')', `, ${alpha})`).replace('rgb', 'rgba').replace('#', '');
+                    // Quick fix for hex to rgba if needed, keeping simple for now assuming hex mostly works or browser handles it
+                    if (primaryColor.startsWith('#')) {
+                        // Basic hex to rgb conversion if needed for canvas context
+                        ctx.strokeStyle = primaryColor;
+                        ctx.globalAlpha = alpha;
+                    }
+                    ctx.lineWidth = isHovering ? 4 : 2;
+                    ctx.shadowBlur = 0;
+                }
                 ctx.stroke();
+                ctx.globalAlpha = 1;
             }
         }
         
         // Remove old points
-        pointsRef.current = pointsRef.current.filter(p => p.age < 20);
+        pointsRef.current = pointsRef.current.filter(p => p.age < (variant === 'plasma' ? 40 : 20));
         
         requestRef.current = requestAnimationFrame(animateTrail);
     };
@@ -96,7 +124,7 @@ const CustomCursor: React.FC = () => {
       window.removeEventListener('mouseover', handleMouseOver);
       cancelAnimationFrame(requestRef.current);
     };
-  }, [cursorX, cursorY, isHovering]);
+  }, [cursorX, cursorY, isHovering, variant]);
 
   return (
     <>
@@ -113,37 +141,48 @@ const CustomCursor: React.FC = () => {
                 translateY: "-50%"
             }}
         >
-        {/* Crosshair Center */}
-        <motion.div 
-            className="w-1 h-1 bg-[#ccff00]"
-        />
         
-        {/* Crosshair Lines */}
-        <motion.div 
-            className="absolute w-8 h-[1px] bg-[#ccff00]"
-            animate={{
-            width: isHovering ? 40 : 20,
-            rotate: isHovering ? 45 : 0
-            }}
-        />
-        <motion.div 
-            className="absolute h-8 w-[1px] bg-[#ccff00]"
-            animate={{
-            height: isHovering ? 40 : 20,
-            rotate: isHovering ? 45 : 0
-            }}
-        />
+        {variant === 'default' && (
+            <>
+                <motion.div className="w-1 h-1 bg-primary" />
+                <motion.div 
+                    className="absolute w-8 h-[1px] bg-primary"
+                    animate={{
+                    width: isHovering ? 40 : 20,
+                    rotate: isHovering ? 45 : 0
+                    }}
+                />
+                <motion.div 
+                    className="absolute h-8 w-[1px] bg-primary"
+                    animate={{
+                    height: isHovering ? 40 : 20,
+                    rotate: isHovering ? 45 : 0
+                    }}
+                />
+                <motion.div
+                    className="absolute border border-primary rounded-full"
+                    animate={{
+                    width: isHovering ? 60 : 0,
+                    height: isHovering ? 60 : 0,
+                    opacity: isHovering ? 1 : 0
+                    }}
+                    transition={{ duration: 0.2 }}
+                />
+            </>
+        )}
 
-        {/* Outer Ring */}
-        <motion.div
-            className="absolute border border-[#ccff00] rounded-full"
-            animate={{
-            width: isHovering ? 60 : 0,
-            height: isHovering ? 60 : 0,
-            opacity: isHovering ? 1 : 0
-            }}
-            transition={{ duration: 0.2 }}
-        />
+        {variant === 'plasma' && (
+            <>
+                 <motion.div 
+                    className="w-4 h-4 rounded-full bg-cyan-400 blur-[2px]"
+                    animate={{ scale: isHovering ? 1.5 : 1 }}
+                 />
+                 <motion.div 
+                    className="absolute w-12 h-12 rounded-full border-2 border-cyan-400 border-dashed animate-spin-slow"
+                    animate={{ scale: isHovering ? 1.2 : 1 }}
+                 />
+            </>
+        )}
         </motion.div>
     </>
   );

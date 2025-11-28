@@ -1,13 +1,15 @@
 
 import React, { useState, useEffect } from 'react';
-import { Menu, X, Terminal, Radio, Volume2, VolumeX } from 'lucide-react';
+import { Menu, X, Terminal, Radio, Volume2, VolumeX, User } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toggleMute, getMuteState, playClick, playAchievement } from '../utils/audio';
+import { toggleGamificationDashboard, getPlayerStats } from './Gamification';
 
 const Header: React.FC = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [time, setTime] = useState('');
   const [muted, setMuted] = useState(getMuteState());
+  const [playerLevel, setPlayerLevel] = useState(1);
 
   useEffect(() => {
     const updateTime = () => {
@@ -16,7 +18,17 @@ const Header: React.FC = () => {
     };
     const timer = setInterval(updateTime, 1000);
     updateTime();
-    return () => clearInterval(timer);
+
+    // Poll for level changes (simple approach since localStorage updates)
+    const levelInterval = setInterval(() => {
+        const stats = getPlayerStats();
+        setPlayerLevel(stats.level);
+    }, 2000);
+
+    return () => {
+        clearInterval(timer);
+        clearInterval(levelInterval);
+    };
   }, []);
 
   const handleMuteToggle = () => {
@@ -36,23 +48,28 @@ const Header: React.FC = () => {
       alert("System Hint: The terminal password protocol is 'PROTOCOL_OMEGA'");
   };
 
+  const handleProfileClick = () => {
+      playClick();
+      toggleGamificationDashboard();
+  };
+
   return (
     <>
       <header className="fixed top-0 left-0 right-0 z-50 p-6 pointer-events-none">
-        <div className="pointer-events-auto flex items-center justify-between border-b border-[#ccff00]/30 bg-black/80 backdrop-blur-md pb-4 pt-2 px-4 clip-corner-tl">
+        <div className="pointer-events-auto flex items-center justify-between border-b border-primary/30 bg-black/80 backdrop-blur-md pb-4 pt-2 px-4 clip-corner-tl">
           
           {/* Brand / Status */}
           <div className="flex items-center gap-4">
              <a href="#home" className="font-display font-bold text-2xl text-white tracking-wider flex items-center gap-2 group">
-               <span className="text-[#ccff00] group-hover:animate-pulse">BAHROZE</span>
+               <span className="text-primary group-hover:animate-pulse">BAHROZE</span>
                <span 
-                 className="text-xs font-mono text-gray-500 bg-white/10 px-2 py-0.5 rounded-sm cursor-help hover:bg-[#ccff00] hover:text-black transition-colors"
+                 className="text-xs font-mono text-gray-500 bg-white/10 px-2 py-0.5 rounded-sm cursor-help hover:bg-primary hover:text-black transition-colors"
                  onClick={(e) => { e.preventDefault(); handleSecretClick(); }}
                >
                  V.3.1
                </span>
              </a>
-             <div className="hidden md:flex items-center gap-2 text-xs font-mono text-[#ccff00]">
+             <div className="hidden md:flex items-center gap-2 text-xs font-mono text-primary">
                 <Radio size={14} className="animate-pulse" />
                 <span>SYS.ONLINE</span>
              </div>
@@ -64,16 +81,27 @@ const Header: React.FC = () => {
               <a 
                 key={link.name} 
                 href={link.href}
-                className="font-mono text-sm text-gray-400 hover:text-[#ccff00] transition-colors relative group flex items-center gap-2"
+                className="font-mono text-sm text-gray-400 hover:text-primary transition-colors relative group flex items-center gap-2"
               >
-                <span className="text-xs text-[#7000df] opacity-50 group-hover:opacity-100">[{link.num}]</span>
+                <span className="text-secondary opacity-50 group-hover:opacity-100">[{link.num}]</span>
                 {link.name}
               </a>
             ))}
              <div className="h-4 w-px bg-gray-800"></div>
              
+             {/* Profile / Level */}
+             <button 
+                 onClick={handleProfileClick}
+                 className="flex items-center gap-2 text-xs font-mono text-gray-400 hover:text-white transition-colors bg-white/5 px-3 py-1 rounded border border-transparent hover:border-gray-600"
+             >
+                 <User size={14} />
+                 <span>LVL {playerLevel}</span>
+             </button>
+
+             <div className="h-4 w-px bg-gray-800"></div>
+
              {/* Sound Toggle */}
-             <button onClick={handleMuteToggle} className="text-gray-400 hover:text-[#ccff00] transition-colors">
+             <button onClick={handleMuteToggle} className="text-gray-400 hover:text-primary transition-colors">
                  {muted ? <VolumeX size={16} /> : <Volume2 size={16} />}
              </button>
 
@@ -84,7 +112,7 @@ const Header: React.FC = () => {
           <div className="hidden md:flex items-center">
              <a 
                href="#contact" 
-               className="bg-[#ccff00] text-black font-bold font-mono text-sm px-6 py-2 cyber-button hover:bg-white transition-colors"
+               className="bg-primary text-black font-bold font-mono text-sm px-6 py-2 cyber-button hover:bg-white transition-colors"
              >
               INIT_CONTACT
              </a>
@@ -92,11 +120,17 @@ const Header: React.FC = () => {
 
           {/* Mobile Toggle */}
           <div className="md:hidden flex items-center gap-4">
-             <button onClick={handleMuteToggle} className="text-gray-400 hover:text-[#ccff00] transition-colors">
+             <button 
+                 onClick={handleProfileClick}
+                 className="text-gray-400 hover:text-white"
+             >
+                 <User size={20} />
+             </button>
+             <button onClick={handleMuteToggle} className="text-gray-400 hover:text-primary transition-colors">
                  {muted ? <VolumeX size={20} /> : <Volume2 size={20} />}
              </button>
              <button 
-                className="text-[#ccff00]"
+                className="text-primary"
                 onClick={() => setMobileMenuOpen(true)}
             >
                 <Terminal size={24} />
@@ -113,13 +147,13 @@ const Header: React.FC = () => {
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
             transition={{ type: "tween", duration: 0.3 }}
-            className="fixed inset-0 z-[60] bg-black border-l border-[#ccff00]/20 flex flex-col p-8"
+            className="fixed inset-0 z-[60] bg-black border-l border-primary/20 flex flex-col p-8"
           >
             <div className="flex justify-between items-center mb-12">
                 <span className="font-display text-xl text-white">MENU</span>
                 <button 
                 onClick={() => setMobileMenuOpen(false)}
-                className="text-white hover:text-[#ccff00]"
+                className="text-white hover:text-primary"
                 >
                 <X size={32} />
                 </button>
@@ -131,16 +165,22 @@ const Header: React.FC = () => {
                   key={link.name} 
                   href={link.href}
                   onClick={() => setMobileMenuOpen(false)}
-                  className="font-display text-4xl text-transparent text-stroke hover:text-[#ccff00] hover:text-stroke-0 transition-all uppercase"
+                  className="font-display text-4xl text-transparent text-stroke hover:text-primary hover:text-stroke-0 transition-all uppercase"
                   style={{ WebkitTextStroke: '1px white' }}
                 >
                   {link.name}
                 </a>
               ))}
+               <button 
+                  onClick={() => { toggleGamificationDashboard(); setMobileMenuOpen(false); }}
+                  className="mt-4 font-mono text-left text-gray-400 hover:text-white"
+                >
+                  [ VIEW PROFILE & REWARDS ]
+               </button>
                <a 
                   href="#contact"
                   onClick={() => setMobileMenuOpen(false)}
-                  className="mt-8 font-mono text-[#ccff00] border border-[#ccff00] px-4 py-3 text-center"
+                  className="mt-8 font-mono text-primary border border-primary px-4 py-3 text-center"
                 >
                   EXECUTE CONTACT_PROTOCOL
                 </a>

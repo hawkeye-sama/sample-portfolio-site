@@ -13,11 +13,11 @@
               background: '#050505',
               surface: '#0f0f0f',
               primary: {
-                DEFAULT: '#ccff00', // Acid Green
+                DEFAULT: 'var(--color-primary)', // Dynamic
                 foreground: '#000000',
               },
               secondary: {
-                DEFAULT: '#7000df', // Electric Purple
+                DEFAULT: 'var(--color-secondary)', // Dynamic
                 foreground: '#ffffff',
               },
               accent: {
@@ -78,6 +78,11 @@
     </script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=JetBrains+Mono:wght@400;700&family=Syncopate:wght@400;700&display=swap" rel="stylesheet">
     <style>
+      :root {
+        --color-primary: #ccff00; /* Acid Green Default */
+        --color-secondary: #7000df; /* Electric Purple Default */
+      }
+
       body {
         font-family: 'Inter', sans-serif;
         background-color: #050505;
@@ -95,10 +100,10 @@
       }
       ::-webkit-scrollbar-thumb {
         background: #333; 
-        border: 1px solid #ccff00;
+        border: 1px solid var(--color-primary);
       }
       ::-webkit-scrollbar-thumb:hover {
-        background: #ccff00; 
+        background: var(--color-primary); 
       }
       
       .clip-corner {
@@ -144,7 +149,7 @@
         width: 100%;
         height: 100%;
         background: #050505;
-        color: #ccff00; /* Fallback color for glitch slices */
+        color: var(--color-primary); /* Fallback color for glitch slices */
       }
       .glitch-text::before {
         left: 2px;
@@ -154,7 +159,7 @@
       }
       .glitch-text::after {
         left: -2px;
-        text-shadow: -1px 0 #ccff00;
+        text-shadow: -1px 0 var(--color-primary);
         clip: rect(85px, 550px, 140px, 0);
         animation: glitch-anim 2.5s infinite linear alternate-reverse;
       }
@@ -177,7 +182,7 @@
       }
 
       ::selection {
-        background: #ccff00;
+        background: var(--color-primary);
         color: black;
       }
     </style>
