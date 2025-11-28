@@ -18,7 +18,7 @@ interface FSNode {
 }
 
 interface TerminalLine {
-  type: 'input' | 'output' | 'system' | 'error' | 'success' | 'info' | 'secret';
+  type: 'input' | 'output' | 'system' | 'error' | 'success' | 'info' | 'secret' | 'warning';
   content: string;
 }
 
@@ -100,6 +100,15 @@ const generateInitialFS = (): FSNode => {
   };
 };
 
+const getOS = () => {
+    if (typeof window === 'undefined') return 'Linux';
+    const userAgent = window.navigator.userAgent;
+    if (userAgent.indexOf("Win") !== -1) return "Windows";
+    if (userAgent.indexOf("Mac") !== -1) return "MacOS";
+    if (userAgent.indexOf("Linux") !== -1) return "Linux";
+    return "Unknown OS";
+};
+
 const InteractiveTerminal: React.FC = () => {
   // --- State ---
   const [fs, setFs] = useState<FSNode>(generateInitialFS());
@@ -147,13 +156,13 @@ const InteractiveTerminal: React.FC = () => {
     if (scrollRef.current && !isEditorOpen) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [history, isEditorOpen]);
+  }, [history, isEditorOpen, isProcessing]);
 
   // Focus management
   useEffect(() => {
     if (isEditorOpen) {
       editorRef.current?.focus();
-    } else {
+    } else if (!isProcessing) {
       inputRef.current?.focus();
     }
   }, [isEditorOpen, isProcessing]);
@@ -284,28 +293,58 @@ const InteractiveTerminal: React.FC = () => {
       return false;
   }
 
-  const initiateSelfDestruct = () => {
+  const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+  const initiateHackerSequence = async () => {
        setIsProcessing(true);
-       addToHistory([
-           { type: 'system', content: 'INITIATING SYSTEM WIPE...' },
-           { type: 'error', content: 'WARNING: THIS ACTION IS IRREVERSIBLE.' }
-       ]);
+       const os = getOS();
+       // Generate a random local IP to look real
+       const ip = `192.168.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}`; 
+       const targetDrive = os === 'Windows' ? 'C:\\Windows\\System32' : (os === 'MacOS' ? '/System/Library/CoreServices' : '/dev/sda1');
+
+       const sequence: {text: string, type: TerminalLine['type'], delay: number}[] = [
+           { text: `[SYSTEM] DETECTED UNAUTHORIZED ROOT COMMAND: rm -rf /`, type: 'error', delay: 800 },
+           { text: `[NETWORK] TRACING ORIGIN IP...`, type: 'system', delay: 1000 },
+           { text: `[NETWORK] TARGET IDENTIFIED: ${ip} (${os})`, type: 'warning', delay: 800 },
+           { text: `[NETWORK] INITIATING REVERSE CONNECTION TO HOST...`, type: 'system', delay: 1500 },
+           { text: `[NETWORK] CONNECTION ESTABLISHED.`, type: 'success', delay: 800 },
+           { text: `[SECURITY] BYPASSING HOST FIREWALL...`, type: 'system', delay: 1200 },
+           { text: `[SECURITY] EXPLOIT CVE-2024-XXXX INJECTED.`, type: 'warning', delay: 500 },
+           { text: `[SECURITY] DUMPING MEMORY ADDR: 0x00400000 - 0x0040FFFF...`, type: 'system', delay: 500 },
+           { text: `[SECURITY] DECRYPTING USER CREDENTIALS...`, type: 'warning', delay: 800 },
+           { text: `[AUTH] ATTEMPT 1: ********** [FAILED]`, type: 'error', delay: 600 },
+           { text: `[AUTH] ATTEMPT 2: ********** [FAILED]`, type: 'error', delay: 600 },
+           { text: `[AUTH] ATTEMPT 3: ********** [SUCCESS]`, type: 'success', delay: 1000 },
+           { text: `[ROOT] ROOT ACCESS GRANTED.`, type: 'error', delay: 800 },
+           { text: `[SYSTEM] STOPPING SERVICES: [audio] [display] [network]...`, type: 'system', delay: 500 },
+           { text: `[DISK] MOUNTING ${targetDrive} FOR DELETION...`, type: 'warning', delay: 1500 },
+           { text: `[DISK] EXECUTING WIPE SEQUENCE...`, type: 'error', delay: 1000 },
+       ];
+
+       for (const step of sequence) {
+           addToHistory([{ type: step.type, content: step.text }]);
+           playTyping();
+           if(scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+           await delay(step.delay);
+       }
        
+       // Rapid file deletion loop
        let count = 0;
-       const max = 30;
        const interval = setInterval(() => {
            count++;
-           const path = Math.random().toString(36).substring(7);
-           const sysDir = ['/bin', '/usr/lib', '/etc', '/var', '/sys', '/proc'][Math.floor(Math.random() * 6)];
-           addToHistory([{ type: 'info', content: `deleting ${sysDir}/${path}...` }]);
-           
+           const file = os === 'Windows' 
+               ? `C:\\Windows\\System32\\${Math.random().toString(36).substring(7)}.dll`
+               : `/usr/lib/${Math.random().toString(36).substring(7)}.so`;
+               
+           addToHistory([{ type: 'system', content: `DELETING: ${file}` }]);
            if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
 
-           if (count > max) {
+           if (count > 50) {
                clearInterval(interval);
-               triggerSystemWipe();
+               triggerSystemWipe({ os });
+               // We intentionally do not set isProcessing(false) here to keep input hidden until the "death" overlay takes over
            }
-       }, 80);
+       }, 30);
   };
 
   // --- Command Processor ---
@@ -381,7 +420,7 @@ const InteractiveTerminal: React.FC = () => {
         
         // Handle sudo rm -rf /
         if (cmd === 'rm' && args.includes('-rf') && args.includes('/')) {
-             initiateSelfDestruct();
+             initiateHackerSequence();
              return;
         }
     }
@@ -539,7 +578,7 @@ const InteractiveTerminal: React.FC = () => {
           
           // Handle root user rm -rf /
           if (user === 'root' && args.includes('-rf') && args.includes('/')) {
-              initiateSelfDestruct();
+              initiateHackerSequence();
               return;
           }
           
@@ -685,6 +724,7 @@ const InteractiveTerminal: React.FC = () => {
       <div 
         className={`w-full transition-all duration-500 rounded-[2rem] overflow-hidden shadow-[0_0_50px_rgba(0,0,0,0.5)] border-8 ${isEditorOpen ? 'border-gray-800 bg-[#111]' : 'border-[#151515] bg-[#0c0c0c]'} relative animate-crt-flicker`}
         style={{
+            maxHeight: '600px',
             minHeight: '400px',
             boxShadow: isEditorOpen ? '0 0 0 2px #333' : 'inset 0 0 100px rgba(0,0,0,0.9), 0 0 40px rgba(0, 255, 0, 0.1)' 
         }}
@@ -742,7 +782,7 @@ const InteractiveTerminal: React.FC = () => {
         ) : (
             /* TERMINAL SHELL MODE */
             <div className="h-full flex flex-col font-mono text-[#ccff00] p-4 md:p-6 text-sm md:text-base relative z-10"
-                 onClick={() => inputRef.current?.focus()}
+                 onClick={() => !isProcessing && inputRef.current?.focus()}
                  style={{ textShadow: "0 0 5px rgba(204, 255, 0, 0.4)" }}>
                 
                 {/* Scrollable Output */}
@@ -750,6 +790,7 @@ const InteractiveTerminal: React.FC = () => {
                     {history.map((line, idx) => (
                         <div key={idx} className={`mb-1 break-words leading-snug whitespace-pre-wrap ${
                             line.type === 'error' ? 'text-red-500' :
+                            line.type === 'warning' ? 'text-yellow-500' :
                             line.type === 'system' ? 'text-gray-500' :
                             line.type === 'info' ? 'text-blue-400' :
                             line.type === 'success' ? 'text-green-400' :
@@ -760,38 +801,40 @@ const InteractiveTerminal: React.FC = () => {
                         </div>
                     ))}
                     
-                    {/* Active Input Line */}
-                    <div className="flex items-center mt-2 group">
-                        <span className={`mr-2 ${user === 'root' ? 'text-red-500' : 'text-blue-400'}`}>
-                            {user}@bahroze:{currentPath.length > 0 ? currentPath[currentPath.length-1] : '/'}
-                        </span>
-                        <span className={`mr-2 font-bold ${user === 'root' ? 'text-red-500' : 'text-[#ccff00]'}`}>
-                            {user === 'root' ? '#' : '$'}
-                        </span>
-                        <div className="relative flex-1">
-                            <input
-                                ref={inputRef}
-                                type="text"
-                                value={input}
-                                onChange={(e) => setInput(e.target.value)}
-                                onKeyDown={handleKeyDown}
-                                disabled={isProcessing}
-                                autoFocus
-                                autoComplete="off"
-                                className="w-full bg-transparent border-none outline-none text-white font-bold caret-transparent"
-                            />
-                            {/* Custom Block Cursor */}
-                            <div className="absolute top-0 left-0 pointer-events-none flex">
-                                <span className="opacity-0 whitespace-pre">{input}</span>
-                                <span className={`w-2.5 h-5 ${user === 'root' ? 'bg-red-500' : 'bg-[#ccff00]'} animate-pulse -ml-[1px]`}></span>
+                    {/* Active Input Line - Hidden during critical processing events for realism */}
+                    {!isProcessing && (
+                        <div className="flex items-center mt-2 group">
+                            <span className={`mr-2 ${user === 'root' ? 'text-red-500' : 'text-blue-400'}`}>
+                                {user}@bahroze:{currentPath.length > 0 ? currentPath[currentPath.length-1] : '/'}
+                            </span>
+                            <span className={`mr-2 font-bold ${user === 'root' ? 'text-red-500' : 'text-[#ccff00]'}`}>
+                                {user === 'root' ? '#' : '$'}
+                            </span>
+                            <div className="relative flex-1">
+                                <input
+                                    ref={inputRef}
+                                    type="text"
+                                    value={input}
+                                    onChange={(e) => setInput(e.target.value)}
+                                    onKeyDown={handleKeyDown}
+                                    disabled={isProcessing}
+                                    autoFocus
+                                    autoComplete="off"
+                                    className="w-full bg-transparent border-none outline-none text-white font-bold caret-transparent"
+                                />
+                                {/* Custom Block Cursor */}
+                                <div className="absolute top-0 left-0 pointer-events-none flex">
+                                    <span className="opacity-0 whitespace-pre">{input}</span>
+                                    <span className={`w-2.5 h-5 ${user === 'root' ? 'bg-red-500' : 'bg-[#ccff00]'} animate-pulse -ml-[1px]`}></span>
+                                </div>
                             </div>
                         </div>
-                    </div>
+                    )}
                 </div>
                 
                 {/* Status Bar */}
                 <div className="mt-2 pt-2 border-t border-[#ccff00]/20 flex justify-between text-xs text-gray-500 uppercase tracking-widest select-none">
-                    <span>{isProcessing ? 'PROCESSING...' : user === 'root' ? 'ROOT ACCESS GRANTED' : 'READY'}</span>
+                    <span>{isProcessing ? 'BUSY / EXEC' : user === 'root' ? 'ROOT ACCESS GRANTED' : 'READY'}</span>
                     <span>BAHROZE_OS_SHELL</span>
                 </div>
             </div>

@@ -2,26 +2,27 @@
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-export const triggerSystemWipe = () => {
+export const triggerSystemWipe = (detail?: { os: string }) => {
     if (typeof window !== 'undefined') {
-        window.dispatchEvent(new CustomEvent('system-wipe'));
+        window.dispatchEvent(new CustomEvent('system-wipe', { detail }));
     }
 };
 
 const SystemWipe: React.FC = () => {
     const [active, setActive] = useState(false);
     const [dead, setDead] = useState(false);
+    const [os, setOs] = useState('Linux');
 
     useEffect(() => {
-        const handler = () => {
+        const handler = (e: CustomEvent) => {
+            if (e.detail?.os) setOs(e.detail.os);
             setActive(true);
-            // Wait for the "void" animation to consume the screen
             setTimeout(() => {
                 setDead(true);
-            }, 4000);
+            }, 3000);
         };
-        window.addEventListener('system-wipe', handler);
-        return () => window.removeEventListener('system-wipe', handler);
+        window.addEventListener('system-wipe' as any, handler);
+        return () => window.removeEventListener('system-wipe' as any, handler);
     }, []);
 
     if (!active) return null;
@@ -35,7 +36,7 @@ const SystemWipe: React.FC = () => {
                         className="absolute inset-0 bg-black"
                         initial={{ clipPath: 'circle(0% at 50% 50%)' }}
                         animate={{ clipPath: 'circle(150% at 50% 50%)' }}
-                        transition={{ duration: 4, ease: "easeInOut" }}
+                        transition={{ duration: 3, ease: "easeInOut" }}
                     />
                     
                     {/* Chaotic Overlays */}
@@ -43,11 +44,24 @@ const SystemWipe: React.FC = () => {
                         className="absolute inset-0 bg-red-500 mix-blend-overlay"
                         initial={{ opacity: 0 }}
                         animate={{ opacity: [0, 0.4, 0, 0.6, 0] }}
-                        transition={{ duration: 0.2, repeat: Infinity }}
+                        transition={{ duration: 0.1, repeat: Infinity }}
                     />
+
+                     {/* Screen Tearing */}
+                    <div className="absolute inset-0 flex flex-col pointer-events-none mix-blend-difference z-30">
+                        {Array.from({ length: 10 }).map((_, i) => (
+                             <motion.div 
+                                key={i}
+                                className="w-full bg-white/20"
+                                initial={{ height: 0, y: Math.random() * 1000 }}
+                                animate={{ height: [0, 50, 0], x: [-20, 20, -10] }}
+                                transition={{ duration: 0.2, repeat: Infinity, delay: Math.random() }}
+                             />
+                        ))}
+                    </div>
                     
                     <div className="absolute inset-0 flex items-center justify-center mix-blend-difference z-20">
-                         <h1 className="text-[10vw] font-black text-white opacity-10 animate-pulse">DELETING...</h1>
+                         <h1 className="text-[10vw] font-black text-white opacity-10 animate-pulse">CRITICAL_FAILURE</h1>
                     </div>
                  </>
              )}
@@ -58,26 +72,66 @@ const SystemWipe: React.FC = () => {
                     <motion.div 
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
-                        className="absolute inset-0 bg-black flex flex-col items-center justify-center p-8 text-red-600 pointer-events-auto"
+                        className={`absolute inset-0 flex flex-col pointer-events-auto p-0 cursor-none ${
+                            os === 'Windows' ? 'bg-[#0078d7] text-white items-start p-16 md:p-32' : 'bg-black text-white items-start p-8 font-mono'
+                        }`}
                     >
-                        <div className="max-w-2xl w-full border border-red-900 p-8 bg-black shadow-[0_0_50px_rgba(255,0,0,0.1)]">
-                            <h1 className="text-4xl md:text-6xl font-black mb-6 tracking-tighter">SYSTEM HALTED</h1>
-                            <div className="space-y-2 font-mono text-sm md:text-base mb-12 border-l-2 border-red-600 pl-4">
-                                <p>CRITICAL ERROR: ROOT FILESYSTEM MISSING</p>
-                                <p>KERNEL PANIC: ATTEMPTED TO KILL INIT</p>
-                                <p>ERROR CODE: 0x000000DEAD</p>
-                                <p className="animate-pulse mt-4">_NO BOOT DEVICE FOUND</p>
-                            </div>
-                            
-                            <div className="flex justify-center">
+                        {os === 'Windows' ? (
+                            // WINDOWS BSOD
+                            <div className="max-w-4xl w-full font-segoe">
+                                <h1 className="text-8xl md:text-9xl mb-8">:(</h1>
+                                <p className="text-2xl md:text-3xl mb-8">Your PC ran into a problem and needs to restart. We're just collecting some error info, and then we'll restart for you.</p>
+                                <p className="text-2xl md:text-3xl mb-12">0% complete</p>
+                                
+                                <div className="flex items-start gap-4">
+                                     <div className="w-24 h-24 bg-white p-1">
+                                        {/* Fake QR */}
+                                        <div className="w-full h-full bg-black flex flex-wrap content-start">
+                                            {Array.from({length: 64}).map((_,i) => (
+                                                <div key={i} className={`w-[12.5%] h-[12.5%] ${Math.random() > 0.5 ? 'bg-white' : 'bg-black'}`}></div>
+                                            ))}
+                                        </div>
+                                     </div>
+                                     <div className="text-sm md:text-base leading-relaxed">
+                                         <p>For more information about this issue and possible fixes, visit https://www.windows.com/stopcode</p>
+                                         <p className="mt-2">If you call a support person, give them this info:</p>
+                                         <p>Stop code: CRITICAL_PROCESS_DIED</p>
+                                     </div>
+                                </div>
                                 <button 
                                     onClick={() => window.location.reload()} 
-                                    className="border border-red-600 px-8 py-3 hover:bg-red-600 hover:text-black transition-all font-bold tracking-widest uppercase hover:shadow-[0_0_20px_rgba(255,0,0,0.5)]"
+                                    className="absolute bottom-10 right-10 bg-white text-[#0078d7] px-6 py-2 font-bold hover:bg-gray-200"
                                 >
-                                    HARD_REBOOT_SYSTEM()
+                                    REBOOT SYSTEM
                                 </button>
                             </div>
-                        </div>
+                        ) : (
+                            // LINUX / MAC KERNEL PANIC
+                            <div className="w-full h-full overflow-hidden text-sm md:text-base font-mono text-gray-300">
+                                <p className="bg-white text-black px-1 w-fit mb-2">KERNEL PANIC - NOT SYNCING: FATAL EXCEPTION IN INTERRUPT HANDLER</p>
+                                <p>Pid: 1, comm: init Not tainted 4.19.0-16-amd64 #1 Debian 4.19.181-1</p>
+                                <p>Call Trace:</p>
+                                <p className="ml-4 text-gray-400">
+                                   [&lt;ffffffff817e1e6b&gt;] ? dump_stack+0x66/0x81<br/>
+                                   [&lt;ffffffff817e1e6b&gt;] ? panic+0xe4/0x24d<br/>
+                                   [&lt;ffffffff810f60a0&gt;] ? do_exit+0x4e0/0xb60<br/>
+                                   [&lt;ffffffff810f67f0&gt;] ? do_group_exit+0x50/0xd0<br/>
+                                   [&lt;ffffffff810f6887&gt;] ? __wake_up_parent+0x0/0x30
+                                </p>
+                                <p className="mt-4">RIP: 0010:rm_rf_slash+0x42/0x80 [core]</p>
+                                <p>RSP: 0018:ffffb9e0c0003f58 EFLAGS: 00010246</p>
+                                <p className="mt-4 text-red-500 font-bold blinking-cursor">
+                                   [    14.234102] ---[ end Kernel panic - not syncing: Attempted to kill init! ]---
+                                </p>
+                                
+                                <button 
+                                    onClick={() => window.location.reload()} 
+                                    className="mt-12 border border-gray-500 px-6 py-2 hover:bg-white hover:text-black transition-colors"
+                                >
+                                    HARD_RESET_CPU_0
+                                </button>
+                            </div>
+                        )}
                     </motion.div>
                 )}
              </AnimatePresence>

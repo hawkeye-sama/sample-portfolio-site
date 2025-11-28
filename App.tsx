@@ -23,10 +23,38 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 const App: React.FC = () => {
   const [loading, setLoading] = useState(true);
+  const [bootLines, setBootLines] = useState<string[]>([]);
 
   useEffect(() => {
-    // Fake boot sequence time
-    const timer = setTimeout(() => setLoading(false), 2500);
+    // Fast Linux-style Boot Sequence
+    const BOOT_LOGS = [
+        "KERNEL: INITIALIZING...",
+        "[ OK ] CPU 0 INITIALIZED",
+        "[ OK ] CPU 1 INITIALIZED",
+        "[ OK ] MEMORY CHECK: 64GB VERIFIED",
+        "[ .... ] MOUNTING VIRTUAL FILE SYSTEM...",
+        "[ OK ] MOUNTED /dev/sda1 (ROOT)",
+        "[ .... ] LOADING NEURAL NETWORK MODULES...",
+        "[ OK ] GEMINI-3-PRO: CONNECTED",
+        "[ .... ] ESTABLISHING SECURE UPLINK...",
+        "[ OK ] SSL HANDSHAKE COMPLETE",
+        "[ OK ] STARTING INTERFACE RENDERER...",
+        "[ OK ] SYSTEM READY"
+    ];
+
+    let delay = 0;
+    const interval = 60; // Very fast lines (60ms)
+
+    BOOT_LOGS.forEach((line, index) => {
+        setTimeout(() => {
+            setBootLines(prev => [...prev, line]);
+        }, index * interval);
+    });
+
+    // End loading after sequence
+    const totalTime = BOOT_LOGS.length * interval + 400; // Add small buffer at end
+    const timer = setTimeout(() => setLoading(false), totalTime);
+
     return () => clearTimeout(timer);
   }, []);
 
@@ -56,22 +84,23 @@ const App: React.FC = () => {
         {loading && (
             <motion.div 
                 initial={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 1 }}
-                className="fixed inset-0 z-[1000] bg-black flex flex-col items-center justify-center font-mono text-[#ccff00]"
+                exit={{ opacity: 0, y: -20, filter: "blur(10px)" }}
+                transition={{ duration: 0.5 }}
+                className="fixed inset-0 z-[1000] bg-black font-mono text-[#ccff00] p-6 md:p-12 flex flex-col justify-end pointer-events-none"
             >
-                <div className="w-64">
-                    <div className="mb-2 text-xs">BIOS CHECK... OK</div>
-                    <div className="mb-2 text-xs">MEMORY... 64GB OK</div>
-                    <div className="mb-2 text-xs">LOADING ASSETS...</div>
-                    <div className="h-1 bg-gray-900 w-full mt-4 overflow-hidden">
+                <div className="max-w-2xl w-full mx-auto md:mx-0">
+                    {bootLines.map((line, i) => (
                         <motion.div 
-                            initial={{ width: 0 }}
-                            animate={{ width: "100%" }}
-                            transition={{ duration: 2, ease: "linear" }}
-                            className="h-full bg-[#ccff00]"
-                        />
-                    </div>
+                           key={i}
+                           initial={{ opacity: 0, x: -10 }}
+                           animate={{ opacity: 1, x: 0 }}
+                           transition={{ duration: 0.1 }}
+                           className="text-xs md:text-sm mb-1 whitespace-nowrap overflow-hidden"
+                        >
+                            {line}
+                        </motion.div>
+                    ))}
+                    <div className="h-4 w-2 bg-[#ccff00] animate-pulse mt-2"></div>
                 </div>
             </motion.div>
         )}
