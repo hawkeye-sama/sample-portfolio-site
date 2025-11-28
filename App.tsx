@@ -18,6 +18,7 @@ import Gamification, { dispatchAchievement } from './components/Gamification';
 import Overdrive from './components/Overdrive';
 import WarpTransition from './components/WarpTransition';
 import CommandPalette from './components/CommandPalette';
+import SystemWipe from './components/SystemWipe';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const App: React.FC = () => {
@@ -48,6 +49,7 @@ const App: React.FC = () => {
       <Overdrive />
       <WarpTransition />
       <CommandPalette />
+      <SystemWipe />
       
       {/* Boot Screen */}
       <AnimatePresence>

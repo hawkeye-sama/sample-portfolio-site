@@ -5,6 +5,7 @@ import { sendMessageToGemini } from '../services/geminiService';
 import { PROJECTS, SKILLS, EXPERIENCE, HERO_DESCRIPTION } from '../constants';
 import { dispatchAchievement } from './Gamification';
 import { playTyping, playError, playClick, playAchievement } from '../utils/audio';
+import { triggerSystemWipe } from './SystemWipe';
 
 // --- Types & Interfaces ---
 
@@ -283,6 +284,30 @@ const InteractiveTerminal: React.FC = () => {
       return false;
   }
 
+  const initiateSelfDestruct = () => {
+       setIsProcessing(true);
+       addToHistory([
+           { type: 'system', content: 'INITIATING SYSTEM WIPE...' },
+           { type: 'error', content: 'WARNING: THIS ACTION IS IRREVERSIBLE.' }
+       ]);
+       
+       let count = 0;
+       const max = 30;
+       const interval = setInterval(() => {
+           count++;
+           const path = Math.random().toString(36).substring(7);
+           const sysDir = ['/bin', '/usr/lib', '/etc', '/var', '/sys', '/proc'][Math.floor(Math.random() * 6)];
+           addToHistory([{ type: 'info', content: `deleting ${sysDir}/${path}...` }]);
+           
+           if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+
+           if (count > max) {
+               clearInterval(interval);
+               triggerSystemWipe();
+           }
+       }, 80);
+  };
+
   // --- Command Processor ---
 
   const processCommand = async (cmdLine: string) => {
@@ -332,7 +357,8 @@ const InteractiveTerminal: React.FC = () => {
             { type: 'info', content: '2. Type "PROTOCOL_OMEGA" as a key to decrypt the hidden file in home/guest/.secret_cache' },
             { type: 'info', content: '3. There is a hidden pixel in the Hero section (bottom right corner).' },
             { type: 'info', content: '4. Check your browser cookies.' },
-            { type: 'info', content: '5. Konami Code (Up, Up, Down, Down...) triggers Overdrive.' }
+            { type: 'info', content: '5. Konami Code (Up, Up, Down, Down...) triggers Overdrive.' },
+            { type: 'info', content: '6. Try "sudo rm -rf /" to destroy the portfolio.' }
         ]);
         dispatchAchievement('INSPECTOR_GADGET');
         return;
@@ -352,9 +378,10 @@ const InteractiveTerminal: React.FC = () => {
         }
         cmd = args[0];
         args = args.slice(1);
+        
+        // Handle sudo rm -rf /
         if (cmd === 'rm' && args.includes('-rf') && args.includes('/')) {
-             playError();
-             addToHistory([{ type: 'error', content: 'PERMISSION DENIED: "System32" is protected by BahrozeAI Defense Grid.' }]);
+             initiateSelfDestruct();
              return;
         }
     }
@@ -418,9 +445,6 @@ const InteractiveTerminal: React.FC = () => {
       case 'll':
         const targetPathLs = args[0] && !args[0].startsWith('-') ? resolvePath(args[0]) : currentPath;
         const nodeLs = getNodeAt(targetPathLs, fs);
-        
-        // Show hidden files if -la is passed or simple ls
-        // In this implementation we just list everything, but we can colorize hidden
         
         if (!nodeLs) {
             addToHistory([{ type: 'error', content: `ls: cannot access '${args[0]}': No such file or directory` }]);
@@ -512,6 +536,13 @@ const InteractiveTerminal: React.FC = () => {
                addToHistory([{ type: 'error', content: 'usage: rm <filename>' }]);
                break;
           }
+          
+          // Handle root user rm -rf /
+          if (user === 'root' && args.includes('-rf') && args.includes('/')) {
+              initiateSelfDestruct();
+              return;
+          }
+          
           if (args[0] === '-rf' && args[1] === '/') {
               addToHistory([{ type: 'error', content: `Nice try, but I can't let you do that, ${user}.` }]);
               break;
