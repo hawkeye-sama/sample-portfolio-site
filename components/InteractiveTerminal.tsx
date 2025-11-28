@@ -724,7 +724,6 @@ const InteractiveTerminal: React.FC = () => {
       <div 
         className={`w-full transition-all duration-500 rounded-[2rem] overflow-hidden shadow-[0_0_50px_rgba(0,0,0,0.5)] border-8 ${isEditorOpen ? 'border-gray-800 bg-[#111]' : 'border-[#151515] bg-[#0c0c0c]'} relative animate-crt-flicker`}
         style={{
-            maxHeight: '600px',
             minHeight: '400px',
             boxShadow: isEditorOpen ? '0 0 0 2px #333' : 'inset 0 0 100px rgba(0,0,0,0.9), 0 0 40px rgba(0, 255, 0, 0.1)' 
         }}
